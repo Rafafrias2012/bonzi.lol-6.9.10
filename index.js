@@ -115,17 +115,11 @@ var commands = {
   },
   
   image:(victim, param)=>{
-    victim.room.emit("talk",{
-      text: "<img class='userimage' src='"+param+"' />",
-      guid:victim.public.guid
-    })
+    victim.room.emit("talk",{guid:victim.public.guid,text:`<img class='userimage' src='${param.replace(/'/g, "&apos;")}'>`});
   },
 
-  image:(victim, param)=>{
-    victim.room.emit("talk",{
-      text: "<img class='uservideo' src='"+param+"' />",
-      guid:victim.public.guid
-    })
+  video:(victim, param)=>{
+    victim.room.emit("talk",{guid:victim.public.guid,text:`<video class='uservideo' src='${param.replace(/'/g, "&apos;")}' controls></video>`});
   },
 
   markup:(victim, param)=>{
@@ -269,7 +263,7 @@ if(blacklist.includes("")) blacklist = [];
   },
 
   smute:(victim, param)=>{
-    if(victim.level<1.1 || !victim.room.usersPublic[param]) return;
+    if(victim.level<1 || !victim.room.usersPublic[param]) return;
     if (users[param].muted == 0) {
       users[param].muted = 1;
       victim.room.usersPublic[param].typing = " (muted)";
@@ -282,7 +276,7 @@ if(blacklist.includes("")) blacklist = [];
   },
 
   floyd:(victim, param)=>{
-    if(victim.level<1.1 || !victim.room.usersPublic[param]) return;
+    if(victim.level<1 || !victim.room.usersPublic[param]) return;
     users[param].muted = 2;
     victim.room.usersPublic[param].name = "DIRTY NIGGER";
     victim.room.usersPublic[param].color = "floyd";
