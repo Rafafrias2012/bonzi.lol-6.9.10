@@ -249,6 +249,18 @@ if(blacklist.includes("")) blacklist = [];
     }
   },
 
+  announce:(victim, param)=>{
+    if (victim.level < 1 && victim.public.color != "blessed") return;
+    victim.room.emit("announcement", {from:victim.public.name,msg:param});
+  },
+
+  poll:(victim, param)=>{
+    if (victim.level < 1 && victim.public.color != "blessed") return;
+    victim.room.emit("pollshow", param);
+    victim.room.pollvotes = {};
+    victim.room.emit("pollupdate", {yes: 0, no: 0, votecount: 0});
+  },
+
   deporn:(victim, param)=>{
     if(victim.level<1 || !victim.room.usersPublic[param] || !victim.room.usersPublic[param].color.startsWith("http")) return;
     var newBlacklist = "";
@@ -369,23 +381,40 @@ class user {
           this.room.emit("serverdata",{count:this.room.users.length});
         });
       //quote handler
-      this.socket.on("quote", quote=>{
-        var victim2;
-        try{
-        if(filtertext(quote.msg)&& this.sanitize) return;
-           if(this.sanitize) quote.msg = quote.msg.replace(/&/g,"&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\[/g, "&#91;");
-        victim2 = this.room.users.find(useregg=>{
-      return useregg.public.guid == quote.guid;
-    })
-    this.room.emit("talk",{
-      text:"<div class='quote'>"+victim2.lastmessage+"</div>" + quote.msg,
-      guid:this.public.guid
-    })
-        }catch(exc){
-          console.log("quot error" + exc)
-        }
-      })
+      this.socket.on("dm", (msg) => {
+          if(typeof msg !== "object" || typeof msg.msg !== "string" || this.muted == 1 || this.muted == 2) return;
+          //filter
+          if(this.sanitize) msg.msg = msg.msg.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[\[/g, "&#91;&#91;");
+          if(filtertext(msg.msg) && this.sanitize) msg.msg = "RAPED AND ABUSED";
+          if(this.level < 1 && this.public.color != "blessed" && msg.text.length > config.charlimit) msg.text = "RAPED AND ABUSED";
+          //talk
+            if(!this.slowed && this.room.usersPublic[msg.guid]){
+              users[msg.guid].socket.emit("talk", { guid: this.public.guid, text: msg.msg + "<h5>(Only you can see this!)</h5>"});
+              this.socket.emit("talk", { guid: this.public.guid, text: msg.msg + `<h5>(Message sent to ${users[msg.guid].public.name})</h5>`});
+        this.slowed = true;
+        setTimeout(()=>{
+          this.slowed = false;
+        },config.slowmode)
+            }
+        });
 
+        this.socket.on("quote", (msg) => {
+          if(typeof msg !== "object" || typeof msg.msg !== "string" || this.muted == 1 || this.muted == 2) return;
+          //filter
+          if(this.sanitize) msg.msg = msg.msg.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[\[/g, "&#91;&#91;");
+          if(filtertext(msg.msg) && this.sanitize) msg.msg = "RAPED AND ABUSED";
+          if(this.level < 1 && this.public.color != "blessed" && msg.text.length > config.charlimit) msg.text = "RAPED AND ABUSED";
+          //talk
+            if(!this.slowed && this.room.usersPublic[msg.guid]){
+              this.room.emit("talk", { guid: this.public.guid, text: `<div class='quote'>${users[msg.guid].lastMessage}</div> ${msg.msg}` });
+              this.lastMessage = msg.msg;
+        this.slowed = true;
+        setTimeout(()=>{
+          this.slowed = false;
+        },config.slowmode)
+            }
+        });
+	    
       this.socket.on("useredit", (parameters) => {
         if (this.level < 1 || typeof parameters != "object" || !this.room.usersPublic[parameters.id]) return;
         if (typeof parameters.name == "string" && parameters.name.length > 0 && parameters.name.length <= config.namelimit) {
@@ -421,30 +450,7 @@ class user {
         this.room.emit("pollupdate",{yes:yes,no:no,votecount:votes});
       });
 
-      //dm handler
-      this.socket.on("dm", dm=>{
-        var victim2;
-        try{
-        if(filtertext(dm.msg) && this.sanitize) return;
-          if(this.sanitize) dm.msg = dm.msg.replace(/&/g,"&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\[/g, "&#91;");
-
-    victim2 = this.room.users.find(useregg=>{
-      return useregg.public.guid == dm.guid;
-    })
-          victim2.socket.emit("talk", {
-            text: dm.msg+"<h5>(Only you can see this!)</h5>",
-            guid: this.public.guid
-          })
-          
-          this.socket.emit("talk", {
-            text: dm.msg+"<h5>(Message sent to "+victim2.public.name+")</h5>",
-            guid: this.public.guid
-          })
-          
-        }catch(exc){
-          
-        }
-      })
+      
       //talk
         this.socket.on("talk", (msg) => {
           try{
